@@ -50,14 +50,68 @@
       background: #2A3C5F;
       border-radius: 9999px;
     }
+    /* Skeleton loading */
+    .skeleton {
+      background: linear-gradient(90deg, #152037 25%, #1E2D4A 50%, #152037 75%);
+      background-size: 200% 100%;
+      animation: shimmer 1.5s infinite;
+    }
+    @keyframes shimmer {
+      0% { background-position: -200% 0; }
+      100% { background-position: 200% 0; }
+    }
   </style>
 </head>
 <body>
   <div id="root"></div>
 
   <script type="text/babel">
-    const { useState, useEffect, useRef } = React;
+    const { useState, useEffect, useRef, useCallback } = React;
     const API_BASE = "https://www.sankavollerei.web.id/anime";
+
+    // Komponen ikon menggunakan SVG inline (tidak bergantung pada lucide)
+    const Icons = {
+      Home: () => (
+        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
+        </svg>
+      ),
+      Calendar: () => (
+        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+        </svg>
+      ),
+      Search: () => (
+        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+        </svg>
+      ),
+      Bookmark: () => (
+        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" />
+        </svg>
+      ),
+      BookmarkCheck: () => (
+        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z M9 12l2 2 4-4" />
+        </svg>
+      ),
+      Play: () => (
+        <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+          <path d="M8 5v14l11-7z" />
+        </svg>
+      ),
+      Star: () => (
+        <svg className="w-3 h-3 fill-current" viewBox="0 0 20 20">
+          <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+        </svg>
+      ),
+      ArrowLeft: () => (
+        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+        </svg>
+      )
+    };
 
     function App() {
       const [provider, setProvider] = useState("samehadaku");
@@ -74,7 +128,6 @@
       const [loading, setLoading] = useState(true);
       const [bookmarks, setBookmarks] = useState(() => JSON.parse(localStorage.getItem("kananime_bookmarks") || "[]"));
       const [history, setHistory] = useState(() => JSON.parse(localStorage.getItem("kananime_history") || "[]"));
-      const searchInputRef = useRef(null);
 
       // Fetch Home Data
       useEffect(() => {
@@ -189,21 +242,16 @@
         localStorage.setItem("kananime_bookmarks", JSON.stringify(updated));
       };
 
-      // Icon components
-      const IconHome = () => <i data-lucide="home" className="w-5 h-5"></i>;
-      const IconCalendar = () => <i data-lucide="calendar" className="w-5 h-5"></i>;
-      const IconSearch = () => <i data-lucide="search" className="w-5 h-5"></i>;
-      const IconLibrary = () => <i data-lucide="bookmark" className="w-5 h-5"></i>;
-      const IconArrowLeft = () => <i data-lucide="arrow-left" className="w-4 h-4"></i>;
-      const IconPlay = () => <i data-lucide="play" className="w-3 h-3"></i>;
-      const IconStar = () => <i data-lucide="star" className="w-3 h-3"></i>;
-      const IconBookmark = () => <i data-lucide="bookmark" className="w-3 h-3"></i>;
-      const IconBookmarkCheck = () => <i data-lucide="bookmark-check" className="w-3 h-3"></i>;
-
-      // Initialize Lucide icons after render
-      useEffect(() => {
-        lucide.createIcons();
-      }, [activeTab, selectedAnime, activeEpisode, homeData, scheduleDays, searchResults, bookmarks, history]);
+      // Skeleton loading component
+      const SkeletonCard = () => (
+        <div className="bg-navy-800 rounded-xl overflow-hidden border border-navy-700">
+          <div className="aspect-[3/4] skeleton"></div>
+          <div className="p-2.5">
+            <div className="h-3 skeleton rounded w-3/4"></div>
+            <div className="h-2 skeleton rounded w-1/2 mt-1.5"></div>
+          </div>
+        </div>
+      );
 
       return (
         <div className="min-h-screen pb-20 flex flex-col max-w-5xl mx-auto px-4">
@@ -245,7 +293,7 @@
                 onClick={() => setActiveEpisode(null)}
                 className="inline-flex items-center gap-2 text-sm text-gray-400 hover:text-white bg-navy-800 px-3 py-1.5 rounded-lg"
               >
-                <i data-lucide="arrow-left" className="w-4 h-4"></i>
+                <Icons.ArrowLeft />
                 Kembali ke Detail Anime
               </button>
 
@@ -293,7 +341,7 @@
                 onClick={() => setSelectedAnime(null)}
                 className="inline-flex items-center gap-2 text-sm text-gray-400 hover:text-white bg-navy-800 px-3 py-1.5 rounded-lg"
               >
-                <i data-lucide="arrow-left" className="w-4 h-4"></i>
+                <Icons.ArrowLeft />
                 Kembali
               </button>
 
@@ -312,12 +360,12 @@
                     >
                       {bookmarks.some(b => b.id === selectedAnime.id) ? (
                         <>
-                          <i data-lucide="bookmark-check" className="w-3.5 h-3.5"></i>
+                          <Icons.BookmarkCheck />
                           Tersimpan
                         </>
                       ) : (
                         <>
-                          <i data-lucide="bookmark" className="w-3.5 h-3.5"></i>
+                          <Icons.Bookmark />
                           Simpan
                         </>
                       )}
@@ -326,7 +374,7 @@
                   <p className="text-xs text-gray-400">{selectedAnime.japanese}</p>
                   <div className="flex flex-wrap gap-2 text-xs">
                     <span className="inline-flex items-center gap-1 bg-navy-700 px-2.5 py-1 rounded-md text-anime-gold font-bold">
-                      <i data-lucide="star" className="w-3 h-3 fill-anime-gold"></i>
+                      <Icons.Star />
                       {typeof selectedAnime.score === 'object' ? selectedAnime.score?.value : (selectedAnime.score || '—')}
                     </span>
                     <span className="bg-navy-700 px-2.5 py-1 rounded-md text-anime-cyan">{selectedAnime.status || 'Ongoing'}</span>
@@ -352,7 +400,7 @@
                       className="text-left bg-navy-700/70 hover:bg-anime-orange hover:text-white p-3 rounded-xl transition text-xs font-medium flex items-center justify-between border border-navy-600/50"
                     >
                       <span className="truncate pr-2">{ep.title || `Episode ${ep.eps || i+1}`}</span>
-                      <i data-lucide="play" className="w-4 h-4 opacity-75 flex-shrink-0"></i>
+                      <Icons.Play />
                     </button>
                   ))}
                 </div>
@@ -364,7 +412,9 @@
               {activeTab === "home" && (
                 <>
                   {/* Hero Banner */}
-                  {homeData.banner && (
+                  {loading ? (
+                    <div className="h-64 rounded-2xl skeleton border border-navy-700"></div>
+                  ) : homeData.banner && (
                     <div 
                       onClick={() => openDetail(homeData.banner.animeId)}
                       className="cursor-pointer relative h-64 rounded-2xl overflow-hidden border border-navy-700 shadow-xl group"
@@ -408,26 +458,30 @@
                       <span className="w-1 h-4 bg-anime-orange rounded-full"></span> Episode Terbaru (Ongoing)
                     </h3>
                     <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3.5">
-                      {homeData.recent.slice(0, 10).map((anime, i) => (
-                        <div 
-                          key={i} 
-                          onClick={() => openDetail(anime.animeId)}
-                          className="bg-navy-800 rounded-xl overflow-hidden border border-navy-700 cursor-pointer group hover:border-anime-orange transition flex flex-col"
-                        >
-                          <div className="aspect-[3/4] relative overflow-hidden">
-                            <img src={anime.poster} className="w-full h-full object-cover group-hover:scale-105 transition" />
-                            {anime.episodes && (
-                              <span className="absolute bottom-2 left-2 bg-anime-coral text-white text-[10px] font-bold px-1.5 py-0.5 rounded">
-                                Ep {anime.episodes}
-                              </span>
-                            )}
+                      {loading ? (
+                        Array(5).fill(0).map((_, i) => <SkeletonCard key={i} />)
+                      ) : (
+                        homeData.recent.slice(0, 10).map((anime, i) => (
+                          <div 
+                            key={i} 
+                            onClick={() => openDetail(anime.animeId)}
+                            className="bg-navy-800 rounded-xl overflow-hidden border border-navy-700 cursor-pointer group hover:border-anime-orange transition flex flex-col"
+                          >
+                            <div className="aspect-[3/4] relative overflow-hidden">
+                              <img src={anime.poster} className="w-full h-full object-cover group-hover:scale-105 transition" />
+                              {anime.episodes && (
+                                <span className="absolute bottom-2 left-2 bg-anime-coral text-white text-[10px] font-bold px-1.5 py-0.5 rounded">
+                                  Ep {anime.episodes}
+                                </span>
+                              )}
+                            </div>
+                            <div className="p-2.5 flex-1 flex flex-col justify-between">
+                              <h4 className="text-xs font-semibold line-clamp-2 leading-snug group-hover:text-anime-orange">{anime.title}</h4>
+                              <p className="text-[10px] text-gray-400 mt-1">{anime.releasedOn || anime.latestReleaseDate || ''}</p>
+                            </div>
                           </div>
-                          <div className="p-2.5 flex-1 flex flex-col justify-between">
-                            <h4 className="text-xs font-semibold line-clamp-2 leading-snug group-hover:text-anime-orange">{anime.title}</h4>
-                            <p className="text-[10px] text-gray-400 mt-1">{anime.releasedOn || anime.latestReleaseDate || ''}</p>
-                          </div>
-                        </div>
-                      ))}
+                        ))
+                      )}
                     </div>
                   </div>
 
@@ -437,24 +491,28 @@
                       <span className="w-1 h-4 bg-anime-orange rounded-full"></span> Paling Populer
                     </h3>
                     <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3.5">
-                      {homeData.popular.slice(0, 10).map((anime, i) => (
-                        <div 
-                          key={i} 
-                          onClick={() => openDetail(anime.animeId)}
-                          className="bg-navy-800 rounded-xl overflow-hidden border border-navy-700 cursor-pointer group hover:border-anime-orange transition flex flex-col"
-                        >
-                          <div className="aspect-[3/4] relative overflow-hidden">
-                            <img src={anime.poster} className="w-full h-full object-cover group-hover:scale-105 transition" />
-                            <span className="inline-flex items-center gap-0.5 absolute top-2 right-2 bg-navy-950/80 text-anime-gold text-[10px] font-bold px-1.5 py-0.5 rounded">
-                              <i data-lucide="star" className="w-2.5 h-2.5 fill-anime-gold"></i>
-                              {typeof anime.score === 'object' ? anime.score?.value : (anime.score || '—')}
-                            </span>
+                      {loading ? (
+                        Array(5).fill(0).map((_, i) => <SkeletonCard key={i} />)
+                      ) : (
+                        homeData.popular.slice(0, 10).map((anime, i) => (
+                          <div 
+                            key={i} 
+                            onClick={() => openDetail(anime.animeId)}
+                            className="bg-navy-800 rounded-xl overflow-hidden border border-navy-700 cursor-pointer group hover:border-anime-orange transition flex flex-col"
+                          >
+                            <div className="aspect-[3/4] relative overflow-hidden">
+                              <img src={anime.poster} className="w-full h-full object-cover group-hover:scale-105 transition" />
+                              <span className="inline-flex items-center gap-0.5 absolute top-2 right-2 bg-navy-950/80 text-anime-gold text-[10px] font-bold px-1.5 py-0.5 rounded">
+                                <Icons.Star />
+                                {typeof anime.score === 'object' ? anime.score?.value : (anime.score || '—')}
+                              </span>
+                            </div>
+                            <div className="p-2.5 flex-1 flex flex-col justify-between">
+                              <h4 className="text-xs font-semibold line-clamp-2 leading-snug group-hover:text-anime-orange">{anime.title}</h4>
+                            </div>
                           </div>
-                          <div className="p-2.5 flex-1 flex flex-col justify-between">
-                            <h4 className="text-xs font-semibold line-clamp-2 leading-snug group-hover:text-anime-orange">{anime.title}</h4>
-                          </div>
-                        </div>
-                      ))}
+                        ))
+                      )}
                     </div>
                   </div>
                 </>
@@ -486,7 +544,7 @@
                           <h4 className="text-xs font-bold line-clamp-2">{anime.title}</h4>
                           <p className="text-[11px] text-gray-400 mt-1">{anime.genres || anime.type || ''}</p>
                           <span className="inline-flex items-center gap-0.5 text-[10px] text-anime-gold font-bold">
-                            <i data-lucide="star" className="w-3 h-3 fill-anime-gold"></i>
+                            <Icons.Star />
                             {typeof anime.score === 'object' ? anime.score?.value : (anime.score || '—')}
                           </span>
                         </div>
@@ -500,7 +558,6 @@
                 <div className="space-y-4">
                   <div className="relative">
                     <input 
-                      ref={searchInputRef}
                       type="text"
                       placeholder="Ketik judul anime lalu tekan enter..."
                       value={searchQuery}
@@ -512,7 +569,7 @@
                       onClick={() => handleSearch(searchQuery)}
                       className="absolute right-2 top-1.5 flex items-center gap-1.5 bg-anime-orange px-3 py-1.5 text-xs font-bold rounded-lg hover:bg-orange-600 transition"
                     >
-                      <i data-lucide="search" className="w-4 h-4"></i>
+                      <Icons.Search />
                       Cari
                     </button>
                   </div>
@@ -572,20 +629,23 @@
           <nav className="fixed bottom-0 left-0 right-0 bg-navy-900/95 border-t border-navy-800 py-2.5 px-4 backdrop-blur z-30">
             <div className="max-w-md mx-auto flex justify-around text-xs">
               {[
-                { id: "home", label: "Beranda", icon: "home" },
-                { id: "schedule", label: "Jadwal", icon: "calendar" },
-                { id: "explore", label: "Cari", icon: "search" },
-                { id: "library", label: "Pustaka", icon: "bookmark" }
-              ].map(tab => (
-                <button
-                  key={tab.id}
-                  onClick={() => { setActiveTab(tab.id); setSelectedAnime(null); setActiveEpisode(null); }}
-                  className={`flex flex-col items-center gap-1 font-medium transition ${activeTab === tab.id ? "text-anime-orange font-bold" : "text-gray-400 hover:text-white"}`}
-                >
-                  <i data-lucide={tab.icon} className={`w-5 h-5 ${activeTab === tab.id ? "text-anime-orange" : ""}`}></i>
-                  <span>{tab.label}</span>
-                </button>
-              ))}
+                { id: "home", label: "Beranda", icon: Icons.Home },
+                { id: "schedule", label: "Jadwal", icon: Icons.Calendar },
+                { id: "explore", label: "Cari", icon: Icons.Search },
+                { id: "library", label: "Pustaka", icon: Icons.Bookmark }
+              ].map(tab => {
+                const IconComp = tab.icon;
+                return (
+                  <button
+                    key={tab.id}
+                    onClick={() => { setActiveTab(tab.id); setSelectedAnime(null); setActiveEpisode(null); }}
+                    className={`flex flex-col items-center gap-1 font-medium transition ${activeTab === tab.id ? "text-anime-orange font-bold" : "text-gray-400 hover:text-white"}`}
+                  >
+                    <IconComp />
+                    <span>{tab.label}</span>
+                  </button>
+                );
+              })}
             </div>
           </nav>
         </div>
