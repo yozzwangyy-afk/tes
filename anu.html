@@ -1,0 +1,557 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Kananime - Nonton Anime Sub Indo</title>
+  <link rel="icon" href="https://img.icons8.com/fluency/96/anime.png" />
+  <!-- Tailwind CSS & Lucide Icons -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <!-- React & Babel for Standalone Web App -->
+  <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            navy: {
+              950: '#070C15',
+              900: '#0B111E',
+              800: '#152037',
+              700: '#1E2D4A',
+              600: '#2A3C5F'
+            },
+            anime: {
+              orange: '#FF5722',
+              coral: '#FF4757',
+              gold: '#FFB300',
+              cyan: '#00D2D3'
+            }
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    body {
+      background-color: #0B111E;
+      color: #F1F5F9;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+    }
+    .custom-scroll::-webkit-scrollbar {
+      height: 6px;
+      width: 6px;
+    }
+    .custom-scroll::-webkit-scrollbar-thumb {
+      background: #2A3C5F;
+      border-radius: 9999px;
+    }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+
+  <script type="text/babel">
+    const { useState, useEffect } = React;
+    const API_BASE = "https://www.sankavollerei.web.id/anime";
+
+    function App() {
+      const [provider, setProvider] = useState("samehadaku"); // "samehadaku" or "otakudesu"
+      const [activeTab, setActiveTab] = useState("home"); // home, schedule, explore, library
+      const [homeData, setHomeData] = useState({ banner: null, recent: [], popular: [], movies: [] });
+      const [scheduleDays, setScheduleDays] = useState([]);
+      const [selectedDayIndex, setSelectedDayIndex] = useState(0);
+      const [searchQuery, setSearchQuery] = useState("");
+      const [searchResults, setSearchResults] = useState([]);
+      const [genres, setGenres] = useState([]);
+      const [selectedAnime, setSelectedAnime] = useState(null);
+      const [activeEpisode, setActiveEpisode] = useState(null);
+      const [streamUrl, setStreamUrl] = useState("");
+      const [loading, setLoading] = useState(true);
+      const [bookmarks, setBookmarks] = useState(() => JSON.parse(localStorage.getItem("kananime_bookmarks") || "[]"));
+      const [history, setHistory] = useState(() => JSON.parse(localStorage.getItem("kananime_history") || "[]"));
+
+      // Fetch Home Data
+      useEffect(() => {
+        setLoading(true);
+        const url = provider === "samehadaku" ? `${API_BASE}/samehadaku/home` : `${API_BASE}/home`;
+        fetch(url)
+          .then(res => res.json())
+          .then(res => {
+            const data = res.data;
+            if (provider === "samehadaku") {
+              const recent = data?.recent?.animeList || [];
+              const top10 = data?.top10?.animeList || [];
+              const movie = data?.movie?.animeList || [];
+              setHomeData({
+                banner: top10[0] || recent[0],
+                recent,
+                popular: top10,
+                movies: movie
+              });
+            } else {
+              const ongoing = data?.ongoing?.animeList || [];
+              const complete = data?.complete?.animeList || [];
+              setHomeData({
+                banner: ongoing[0],
+                recent: ongoing,
+                popular: complete.slice(0, 10),
+                movies: complete.slice(10)
+              });
+            }
+            setLoading(false);
+          })
+          .catch(() => setLoading(false));
+      }, [provider]);
+
+      // Fetch Schedule
+      useEffect(() => {
+        const url = provider === "samehadaku" ? `${API_BASE}/samehadaku/schedule` : `${API_BASE}/schedule`;
+        fetch(url)
+          .then(res => res.json())
+          .then(res => {
+            if (res.data?.days) setScheduleDays(res.data.days);
+          });
+      }, [provider]);
+
+      // Fetch Genres
+      useEffect(() => {
+        const url = provider === "samehadaku" ? `${API_BASE}/samehadaku/genres` : `${API_BASE}/genre`;
+        fetch(url)
+          .then(res => res.json())
+          .then(res => {
+            if (res.data?.genreList) setGenres(res.data.genreList);
+          });
+      }, [provider]);
+
+      // Handle Search
+      const handleSearch = (q) => {
+        setSearchQuery(q);
+        if (!q.trim()) return;
+        const url = provider === "samehadaku" 
+          ? `${API_BASE}/samehadaku/search?q=${encodeURIComponent(q)}`
+          : `${API_BASE}/search/${encodeURIComponent(q)}`;
+        fetch(url)
+          .then(res => res.json())
+          .then(res => {
+            if (res.data?.animeList) setSearchResults(res.data.animeList);
+          });
+      };
+
+      // Open Anime Detail
+      const openDetail = (animeId) => {
+        setLoading(true);
+        const url = provider === "samehadaku"
+          ? `${API_BASE}/samehadaku/anime/${animeId}`
+          : `${API_BASE}/anime/${animeId}`;
+        fetch(url)
+          .then(res => res.json())
+          .then(res => {
+            setSelectedAnime({ ...res.data, id: animeId });
+            setLoading(false);
+          });
+      };
+
+      // Open Episode Watch
+      const openEpisode = (epId, animeTitle, poster) => {
+        setLoading(true);
+        const url = provider === "samehadaku"
+          ? `${API_BASE}/samehadaku/episode/${epId}`
+          : `${API_BASE}/episode/${epId}`;
+        fetch(url)
+          .then(res => res.json())
+          .then(res => {
+            const epData = res.data;
+            setActiveEpisode(epData);
+            setStreamUrl(epData?.defaultStreamingUrl || epData?.streamUrl || "");
+            
+            // Save to history
+            const newHistory = [
+              { epId, title: epData?.title || epId, animeTitle, poster, time: Date.now() },
+              ...history.filter(h => h.epId !== epId)
+            ].slice(0, 20);
+            setHistory(newHistory);
+            localStorage.setItem("kananime_history", JSON.stringify(newHistory));
+            setLoading(false);
+          });
+      };
+
+      const toggleBookmark = (anime) => {
+        const exists = bookmarks.some(b => b.id === anime.id);
+        const updated = exists 
+          ? bookmarks.filter(b => b.id !== anime.id)
+          : [...bookmarks, { id: anime.id, title: anime.title, poster: anime.poster, score: anime.score }];
+        setBookmarks(updated);
+        localStorage.setItem("kananime_bookmarks", JSON.stringify(updated));
+      };
+
+      return (
+        <div className="min-h-screen pb-20 flex flex-col max-w-5xl mx-auto px-4">
+          {/* Top Bar */}
+          <header className="flex items-center justify-between py-4 border-b border-navy-700/60 sticky top-0 bg-navy-900/90 backdrop-blur z-30">
+            <div className="flex items-center gap-3 cursor-pointer" onClick={() => { setSelectedAnime(null); setActiveEpisode(null); setActiveTab("home"); }}>
+              <div className="w-9 h-9 rounded-full bg-anime-orange flex items-center justify-center font-black text-white text-lg shadow-lg shadow-orange-500/20">
+                K
+              </div>
+              <div>
+                <h1 className="text-xl font-black tracking-tight leading-none">
+                  Kanan<span className="text-anime-orange">ime</span>
+                </h1>
+                <p className="text-[10px] text-gray-400 font-medium">Nonton Anime Sub Indo</p>
+              </div>
+            </div>
+
+            {/* Provider Switcher */}
+            <div className="flex items-center gap-2 bg-navy-800 border border-navy-700 rounded-full p-1 text-xs">
+              <button
+                onClick={() => setProvider("samehadaku")}
+                className={`px-3 py-1 rounded-full font-semibold transition ${provider === "samehadaku" ? "bg-anime-orange text-white" : "text-gray-400 hover:text-white"}`}
+              >
+                Samehadaku
+              </button>
+              <button
+                onClick={() => setProvider("otakudesu")}
+                className={`px-3 py-1 rounded-full font-semibold transition ${provider === "otakudesu" ? "bg-anime-cyan text-navy-950 font-bold" : "text-gray-400 hover:text-white"}`}
+              >
+                Otakudesu
+              </button>
+            </div>
+          </header>
+
+          {/* Episode Player View */}
+          {activeEpisode ? (
+            <div className="py-4 space-y-4">
+              <button 
+                onClick={() => setActiveEpisode(null)}
+                className="inline-flex items-center gap-2 text-sm text-gray-400 hover:text-white bg-navy-800 px-3 py-1.5 rounded-lg"
+              >
+                ← Kembali ke Detail Anime
+              </button>
+
+              <div className="aspect-video bg-black rounded-xl overflow-hidden border border-navy-700 shadow-2xl relative">
+                {streamUrl ? (
+                  <iframe 
+                    src={streamUrl} 
+                    className="w-full h-full" 
+                    allowFullScreen 
+                    allow="autoplay; fullscreen"
+                  />
+                ) : (
+                  <div className="flex items-center justify-center h-full text-gray-400 text-sm">
+                    Pilih server di bawah untuk memutar...
+                  </div>
+                )}
+              </div>
+
+              <div className="bg-navy-800 p-4 rounded-xl border border-navy-700">
+                <h2 className="text-lg font-bold text-white">{activeEpisode.title}</h2>
+                <div className="flex flex-wrap gap-2 mt-4">
+                  <span className="text-xs text-gray-400 font-medium py-1">Pilih Server:</span>
+                  {activeEpisode.server?.qualities?.map((q, qi) => 
+                    q.serverList?.map((s, si) => (
+                      <button
+                        key={`${qi}-${si}`}
+                        onClick={() => {
+                          fetch(`${API_BASE}/${provider}/server/${s.serverId}`)
+                            .then(r => r.json())
+                            .then(res => res.data?.url && setStreamUrl(res.data.url));
+                        }}
+                        className="text-xs bg-navy-700 hover:bg-anime-orange hover:text-white px-3 py-1 rounded-md transition"
+                      >
+                        {s.title} ({q.title})
+                      </button>
+                    ))
+                  )}
+                </div>
+              </div>
+            </div>
+          ) : selectedAnime ? (
+            /* Anime Detail View */
+            <div className="py-6 space-y-6">
+              <button 
+                onClick={() => setSelectedAnime(null)}
+                className="inline-flex items-center gap-2 text-sm text-gray-400 hover:text-white bg-navy-800 px-3 py-1.5 rounded-lg"
+              >
+                ← Kembali
+              </button>
+
+              <div className="flex flex-col md:flex-row gap-6 bg-navy-800 p-6 rounded-2xl border border-navy-700">
+                <img 
+                  src={selectedAnime.poster} 
+                  alt={selectedAnime.title} 
+                  className="w-44 h-64 object-cover rounded-xl shadow-lg mx-auto md:mx-0"
+                />
+                <div className="flex-1 space-y-3">
+                  <div className="flex items-start justify-between">
+                    <h2 className="text-2xl font-bold text-white">{selectedAnime.title}</h2>
+                    <button 
+                      onClick={() => toggleBookmark(selectedAnime)}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-semibold border ${bookmarks.some(b => b.id === selectedAnime.id) ? "bg-anime-orange text-white border-anime-orange" : "border-navy-600 text-gray-300"}`}
+                    >
+                      {bookmarks.some(b => b.id === selectedAnime.id) ? "★ Tersimpan" : "☆ Simpan"}
+                    </button>
+                  </div>
+                  <p className="text-xs text-gray-400">{selectedAnime.japanese}</p>
+                  <div className="flex flex-wrap gap-2 text-xs">
+                    <span className="bg-navy-700 px-2.5 py-1 rounded-md text-anime-gold font-bold">★ {typeof selectedAnime.score === 'object' ? selectedAnime.score?.value : (selectedAnime.score || '—')}</span>
+                    <span className="bg-navy-700 px-2.5 py-1 rounded-md text-anime-cyan">{selectedAnime.status || 'Ongoing'}</span>
+                    <span className="bg-navy-700 px-2.5 py-1 rounded-md text-gray-300">{selectedAnime.type || 'TV'}</span>
+                  </div>
+                  <p className="text-xs text-gray-300 leading-relaxed max-h-32 overflow-y-auto custom-scroll">
+                    {typeof selectedAnime.synopsis === 'object' ? selectedAnime.synopsis?.paragraphs?.join(' ') : (selectedAnime.synopsis || 'Tidak ada sinopsis.')}
+                  </p>
+                </div>
+              </div>
+
+              {/* Episode List */}
+              <div className="bg-navy-800 p-6 rounded-2xl border border-navy-700">
+                <h3 className="text-lg font-bold mb-4 flex items-center gap-2">
+                  <span className="w-1 h-5 bg-anime-orange rounded-full"></span>
+                  Daftar Episode ({selectedAnime.episodeList?.length || 0})
+                </h3>
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2.5 max-h-96 overflow-y-auto custom-scroll pr-1">
+                  {selectedAnime.episodeList?.map((ep, i) => (
+                    <button
+                      key={i}
+                      onClick={() => openEpisode(ep.episodeId, selectedAnime.title, selectedAnime.poster)}
+                      className="text-left bg-navy-700/70 hover:bg-anime-orange hover:text-white p-3 rounded-xl transition text-xs font-medium flex items-center justify-between border border-navy-600/50"
+                    >
+                      <span className="truncate pr-2">{ep.title || `Episode ${ep.eps || i+1}`}</span>
+                      <span className="text-[10px] opacity-75">Tonton ▶</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+          ) : (
+            /* Main Content based on active tab */
+            <div className="py-4 space-y-6">
+              {activeTab === "home" && (
+                <>
+                  {/* Hero Banner */}
+                  {homeData.banner && (
+                    <div 
+                      onClick={() => openDetail(homeData.banner.animeId)}
+                      className="cursor-pointer relative h-64 rounded-2xl overflow-hidden border border-navy-700 shadow-xl group"
+                    >
+                      <img src={homeData.banner.poster} className="w-full h-full object-cover group-hover:scale-105 transition duration-500" />
+                      <div className="absolute inset-0 bg-gradient-to-t from-navy-950 via-navy-950/60 to-transparent flex flex-col justify-end p-6">
+                        <span className="bg-anime-orange text-white text-[10px] font-black px-2 py-0.5 rounded w-max mb-2">UNGGULAN</span>
+                        <h2 className="text-2xl font-bold text-white group-hover:text-anime-orange transition line-clamp-1">{homeData.banner.title}</h2>
+                        <p className="text-xs text-gray-300 mt-1">Klik untuk melihat detail & daftar episode</p>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Continue Watching */}
+                  {history.length > 0 && (
+                    <div>
+                      <h3 className="text-base font-bold mb-3 flex items-center gap-2">
+                        <span className="w-1 h-4 bg-anime-orange rounded-full"></span> Lanjutkan Menonton
+                      </h3>
+                      <div className="flex gap-3 overflow-x-auto pb-2 custom-scroll">
+                        {history.map((h, i) => (
+                          <div 
+                            key={i} 
+                            onClick={() => openEpisode(h.epId, h.animeTitle, h.poster)}
+                            className="flex-shrink-0 w-64 bg-navy-800 p-3 rounded-xl border border-navy-700 flex gap-3 cursor-pointer hover:border-anime-orange transition"
+                          >
+                            <img src={h.poster} className="w-16 h-12 object-cover rounded-lg" />
+                            <div className="overflow-hidden">
+                              <p className="text-xs font-bold truncate">{h.animeTitle}</p>
+                              <p className="text-[11px] text-gray-400 truncate">{h.title}</p>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Ongoing Anime */}
+                  <div>
+                    <h3 className="text-base font-bold mb-3 flex items-center gap-2">
+                      <span className="w-1 h-4 bg-anime-orange rounded-full"></span> Episode Terbaru (Ongoing)
+                    </h3>
+                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3.5">
+                      {homeData.recent.slice(0, 10).map((anime, i) => (
+                        <div 
+                          key={i} 
+                          onClick={() => openDetail(anime.animeId)}
+                          className="bg-navy-800 rounded-xl overflow-hidden border border-navy-700 cursor-pointer group hover:border-anime-orange transition flex flex-col"
+                        >
+                          <div className="aspect-[3/4] relative overflow-hidden">
+                            <img src={anime.poster} className="w-full h-full object-cover group-hover:scale-105 transition" />
+                            {anime.episodes && (
+                              <span className="absolute bottom-2 left-2 bg-anime-coral text-white text-[10px] font-bold px-1.5 py-0.5 rounded">
+                                Ep {anime.episodes}
+                              </span>
+                            )}
+                          </div>
+                          <div className="p-2.5 flex-1 flex flex-col justify-between">
+                            <h4 className="text-xs font-semibold line-clamp-2 leading-snug group-hover:text-anime-orange">{anime.title}</h4>
+                            <p className="text-[10px] text-gray-400 mt-1">{anime.releasedOn || anime.latestReleaseDate || ''}</p>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Popular Anime */}
+                  <div>
+                    <h3 className="text-base font-bold mb-3 flex items-center gap-2">
+                      <span className="w-1 h-4 bg-anime-orange rounded-full"></span> Paling Populer
+                    </h3>
+                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3.5">
+                      {homeData.popular.slice(0, 10).map((anime, i) => (
+                        <div 
+                          key={i} 
+                          onClick={() => openDetail(anime.animeId)}
+                          className="bg-navy-800 rounded-xl overflow-hidden border border-navy-700 cursor-pointer group hover:border-anime-orange transition flex flex-col"
+                        >
+                          <div className="aspect-[3/4] relative overflow-hidden">
+                            <img src={anime.poster} className="w-full h-full object-cover group-hover:scale-105 transition" />
+                            <span className="absolute top-2 right-2 bg-navy-950/80 text-anime-gold text-[10px] font-bold px-1.5 py-0.5 rounded">
+                              ★ {typeof anime.score === 'object' ? anime.score?.value : (anime.score || '—')}
+                            </span>
+                          </div>
+                          <div className="p-2.5 flex-1 flex flex-col justify-between">
+                            <h4 className="text-xs font-semibold line-clamp-2 leading-snug group-hover:text-anime-orange">{anime.title}</h4>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </>
+              )}
+
+              {activeTab === "schedule" && (
+                <div className="space-y-4">
+                  <div className="flex gap-2 overflow-x-auto pb-2 custom-scroll">
+                    {scheduleDays.map((d, i) => (
+                      <button
+                        key={i}
+                        onClick={() => setSelectedDayIndex(i)}
+                        className={`px-4 py-2 rounded-xl text-xs font-bold whitespace-nowrap border transition ${i === selectedDayIndex ? "bg-anime-orange text-white border-anime-orange" : "bg-navy-800 text-gray-400 border-navy-700"}`}
+                      >
+                        {d.day}
+                      </button>
+                    ))}
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    {scheduleDays[selectedDayIndex]?.animeList?.map((anime, i) => (
+                      <div 
+                        key={i} 
+                        onClick={() => openDetail(anime.animeId)}
+                        className="bg-navy-800 p-3 rounded-xl border border-navy-700 flex gap-3 cursor-pointer hover:border-anime-orange transition"
+                      >
+                        <img src={anime.poster} className="w-16 h-20 object-cover rounded-lg" />
+                        <div className="flex-1">
+                          <h4 className="text-xs font-bold line-clamp-2">{anime.title}</h4>
+                          <p className="text-[11px] text-gray-400 mt-1">{anime.genres || anime.type || ''}</p>
+                          <span className="text-[10px] text-anime-gold font-bold">★ {typeof anime.score === 'object' ? anime.score?.value : (anime.score || '—')}</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {activeTab === "explore" && (
+                <div className="space-y-4">
+                  <div className="relative">
+                    <input 
+                      type="text"
+                      placeholder="Ketik judul anime lalu tekan enter..."
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      onKeyDown={(e) => e.key === "Enter" && handleSearch(searchQuery)}
+                      className="w-full bg-navy-800 border border-navy-700 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-anime-orange text-white"
+                    />
+                    <button 
+                      onClick={() => handleSearch(searchQuery)}
+                      className="absolute right-3 top-2.5 bg-anime-orange px-3 py-1 text-xs rounded-lg font-bold"
+                    >
+                      Cari
+                    </button>
+                  </div>
+
+                  {searchResults.length > 0 && (
+                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3.5">
+                      {searchResults.map((anime, i) => (
+                        <div 
+                          key={i} 
+                          onClick={() => openDetail(anime.animeId)}
+                          className="bg-navy-800 rounded-xl overflow-hidden border border-navy-700 cursor-pointer group hover:border-anime-orange transition"
+                        >
+                          <img src={anime.poster} className="aspect-[3/4] w-full object-cover" />
+                          <div className="p-2.5">
+                            <h4 className="text-xs font-semibold line-clamp-2">{anime.title}</h4>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {activeTab === "library" && (
+                <div>
+                  <h3 className="text-base font-bold mb-3 flex items-center gap-2">
+                    <span className="w-1 h-4 bg-anime-orange rounded-full"></span> Anime Favorit ({bookmarks.length})
+                  </h3>
+                  {bookmarks.length === 0 ? (
+                    <p className="text-xs text-gray-400 py-8 text-center">Belum ada anime favorit yang disimpan.</p>
+                  ) : (
+                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3.5">
+                      {bookmarks.map((b, i) => (
+                        <div 
+                          key={i} 
+                          onClick={() => openDetail(b.id)}
+                          className="bg-navy-800 rounded-xl overflow-hidden border border-navy-700 cursor-pointer group hover:border-anime-orange transition"
+                        >
+                          <img src={b.poster} className="aspect-[3/4] w-full object-cover" />
+                          <div className="p-2.5">
+                            <h4 className="text-xs font-semibold line-clamp-2">{b.title}</h4>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Bottom Navigation */}
+          <nav className="fixed bottom-0 left-0 right-0 bg-navy-900/95 border-t border-navy-800 py-2.5 px-4 backdrop-blur z-30">
+            <div className="max-w-md mx-auto flex justify-around text-xs">
+              {[
+                { id: "home", label: "Beranda", icon: "🏠" },
+                { id: "schedule", label: "Jadwal", icon: "📅" },
+                { id: "explore", label: "Cari", icon: "🔍" },
+                { id: "library", label: "Pustaka", icon: "📚" }
+              ].map(tab => (
+                <button
+                  key={tab.id}
+                  onClick={() => { setActiveTab(tab.id); setSelectedAnime(null); setActiveEpisode(null); }}
+                  className={`flex flex-col items-center gap-1 font-medium transition ${activeTab === tab.id ? "text-anime-orange font-bold" : "text-gray-400"}`}
+                >
+                  <span className="text-base">{tab.icon}</span>
+                  <span>{tab.label}</span>
+                </button>
+              ))}
+            </div>
+          </nav>
+        </div>
+      );
+    }
+
+    ReactDOM.render(<App />, document.getElementById("root"));
+  </script>
+</body>
+</html>
