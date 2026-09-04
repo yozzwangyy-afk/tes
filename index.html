@@ -56,12 +56,12 @@
   <div id="root"></div>
 
   <script type="text/babel">
-    const { useState, useEffect } = React;
+    const { useState, useEffect, useRef } = React;
     const API_BASE = "https://www.sankavollerei.web.id/anime";
 
     function App() {
-      const [provider, setProvider] = useState("samehadaku"); // "samehadaku" or "otakudesu"
-      const [activeTab, setActiveTab] = useState("home"); // home, schedule, explore, library
+      const [provider, setProvider] = useState("samehadaku");
+      const [activeTab, setActiveTab] = useState("home");
       const [homeData, setHomeData] = useState({ banner: null, recent: [], popular: [], movies: [] });
       const [scheduleDays, setScheduleDays] = useState([]);
       const [selectedDayIndex, setSelectedDayIndex] = useState(0);
@@ -74,6 +74,7 @@
       const [loading, setLoading] = useState(true);
       const [bookmarks, setBookmarks] = useState(() => JSON.parse(localStorage.getItem("kananime_bookmarks") || "[]"));
       const [history, setHistory] = useState(() => JSON.parse(localStorage.getItem("kananime_history") || "[]"));
+      const searchInputRef = useRef(null);
 
       // Fetch Home Data
       useEffect(() => {
@@ -169,7 +170,6 @@
             setActiveEpisode(epData);
             setStreamUrl(epData?.defaultStreamingUrl || epData?.streamUrl || "");
             
-            // Save to history
             const newHistory = [
               { epId, title: epData?.title || epId, animeTitle, poster, time: Date.now() },
               ...history.filter(h => h.epId !== epId)
@@ -188,6 +188,22 @@
         setBookmarks(updated);
         localStorage.setItem("kananime_bookmarks", JSON.stringify(updated));
       };
+
+      // Icon components
+      const IconHome = () => <i data-lucide="home" className="w-5 h-5"></i>;
+      const IconCalendar = () => <i data-lucide="calendar" className="w-5 h-5"></i>;
+      const IconSearch = () => <i data-lucide="search" className="w-5 h-5"></i>;
+      const IconLibrary = () => <i data-lucide="bookmark" className="w-5 h-5"></i>;
+      const IconArrowLeft = () => <i data-lucide="arrow-left" className="w-4 h-4"></i>;
+      const IconPlay = () => <i data-lucide="play" className="w-3 h-3"></i>;
+      const IconStar = () => <i data-lucide="star" className="w-3 h-3"></i>;
+      const IconBookmark = () => <i data-lucide="bookmark" className="w-3 h-3"></i>;
+      const IconBookmarkCheck = () => <i data-lucide="bookmark-check" className="w-3 h-3"></i>;
+
+      // Initialize Lucide icons after render
+      useEffect(() => {
+        lucide.createIcons();
+      }, [activeTab, selectedAnime, activeEpisode, homeData, scheduleDays, searchResults, bookmarks, history]);
 
       return (
         <div className="min-h-screen pb-20 flex flex-col max-w-5xl mx-auto px-4">
@@ -229,7 +245,8 @@
                 onClick={() => setActiveEpisode(null)}
                 className="inline-flex items-center gap-2 text-sm text-gray-400 hover:text-white bg-navy-800 px-3 py-1.5 rounded-lg"
               >
-                ← Kembali ke Detail Anime
+                <i data-lucide="arrow-left" className="w-4 h-4"></i>
+                Kembali ke Detail Anime
               </button>
 
               <div className="aspect-video bg-black rounded-xl overflow-hidden border border-navy-700 shadow-2xl relative">
@@ -276,7 +293,8 @@
                 onClick={() => setSelectedAnime(null)}
                 className="inline-flex items-center gap-2 text-sm text-gray-400 hover:text-white bg-navy-800 px-3 py-1.5 rounded-lg"
               >
-                ← Kembali
+                <i data-lucide="arrow-left" className="w-4 h-4"></i>
+                Kembali
               </button>
 
               <div className="flex flex-col md:flex-row gap-6 bg-navy-800 p-6 rounded-2xl border border-navy-700">
@@ -290,14 +308,27 @@
                     <h2 className="text-2xl font-bold text-white">{selectedAnime.title}</h2>
                     <button 
                       onClick={() => toggleBookmark(selectedAnime)}
-                      className={`px-3 py-1.5 rounded-lg text-xs font-semibold border ${bookmarks.some(b => b.id === selectedAnime.id) ? "bg-anime-orange text-white border-anime-orange" : "border-navy-600 text-gray-300"}`}
+                      className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border ${bookmarks.some(b => b.id === selectedAnime.id) ? "bg-anime-orange text-white border-anime-orange" : "border-navy-600 text-gray-300 hover:border-anime-orange"}`}
                     >
-                      {bookmarks.some(b => b.id === selectedAnime.id) ? "★ Tersimpan" : "☆ Simpan"}
+                      {bookmarks.some(b => b.id === selectedAnime.id) ? (
+                        <>
+                          <i data-lucide="bookmark-check" className="w-3.5 h-3.5"></i>
+                          Tersimpan
+                        </>
+                      ) : (
+                        <>
+                          <i data-lucide="bookmark" className="w-3.5 h-3.5"></i>
+                          Simpan
+                        </>
+                      )}
                     </button>
                   </div>
                   <p className="text-xs text-gray-400">{selectedAnime.japanese}</p>
                   <div className="flex flex-wrap gap-2 text-xs">
-                    <span className="bg-navy-700 px-2.5 py-1 rounded-md text-anime-gold font-bold">★ {typeof selectedAnime.score === 'object' ? selectedAnime.score?.value : (selectedAnime.score || '—')}</span>
+                    <span className="inline-flex items-center gap-1 bg-navy-700 px-2.5 py-1 rounded-md text-anime-gold font-bold">
+                      <i data-lucide="star" className="w-3 h-3 fill-anime-gold"></i>
+                      {typeof selectedAnime.score === 'object' ? selectedAnime.score?.value : (selectedAnime.score || '—')}
+                    </span>
                     <span className="bg-navy-700 px-2.5 py-1 rounded-md text-anime-cyan">{selectedAnime.status || 'Ongoing'}</span>
                     <span className="bg-navy-700 px-2.5 py-1 rounded-md text-gray-300">{selectedAnime.type || 'TV'}</span>
                   </div>
@@ -321,7 +352,7 @@
                       className="text-left bg-navy-700/70 hover:bg-anime-orange hover:text-white p-3 rounded-xl transition text-xs font-medium flex items-center justify-between border border-navy-600/50"
                     >
                       <span className="truncate pr-2">{ep.title || `Episode ${ep.eps || i+1}`}</span>
-                      <span className="text-[10px] opacity-75">Tonton ▶</span>
+                      <i data-lucide="play" className="w-4 h-4 opacity-75 flex-shrink-0"></i>
                     </button>
                   ))}
                 </div>
@@ -414,8 +445,9 @@
                         >
                           <div className="aspect-[3/4] relative overflow-hidden">
                             <img src={anime.poster} className="w-full h-full object-cover group-hover:scale-105 transition" />
-                            <span className="absolute top-2 right-2 bg-navy-950/80 text-anime-gold text-[10px] font-bold px-1.5 py-0.5 rounded">
-                              ★ {typeof anime.score === 'object' ? anime.score?.value : (anime.score || '—')}
+                            <span className="inline-flex items-center gap-0.5 absolute top-2 right-2 bg-navy-950/80 text-anime-gold text-[10px] font-bold px-1.5 py-0.5 rounded">
+                              <i data-lucide="star" className="w-2.5 h-2.5 fill-anime-gold"></i>
+                              {typeof anime.score === 'object' ? anime.score?.value : (anime.score || '—')}
                             </span>
                           </div>
                           <div className="p-2.5 flex-1 flex flex-col justify-between">
@@ -453,7 +485,10 @@
                         <div className="flex-1">
                           <h4 className="text-xs font-bold line-clamp-2">{anime.title}</h4>
                           <p className="text-[11px] text-gray-400 mt-1">{anime.genres || anime.type || ''}</p>
-                          <span className="text-[10px] text-anime-gold font-bold">★ {typeof anime.score === 'object' ? anime.score?.value : (anime.score || '—')}</span>
+                          <span className="inline-flex items-center gap-0.5 text-[10px] text-anime-gold font-bold">
+                            <i data-lucide="star" className="w-3 h-3 fill-anime-gold"></i>
+                            {typeof anime.score === 'object' ? anime.score?.value : (anime.score || '—')}
+                          </span>
                         </div>
                       </div>
                     ))}
@@ -465,17 +500,19 @@
                 <div className="space-y-4">
                   <div className="relative">
                     <input 
+                      ref={searchInputRef}
                       type="text"
                       placeholder="Ketik judul anime lalu tekan enter..."
                       value={searchQuery}
                       onChange={(e) => setSearchQuery(e.target.value)}
                       onKeyDown={(e) => e.key === "Enter" && handleSearch(searchQuery)}
-                      className="w-full bg-navy-800 border border-navy-700 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-anime-orange text-white"
+                      className="w-full bg-navy-800 border border-navy-700 rounded-xl px-4 py-3 pr-20 text-sm focus:outline-none focus:border-anime-orange text-white placeholder-gray-500"
                     />
                     <button 
                       onClick={() => handleSearch(searchQuery)}
-                      className="absolute right-3 top-2.5 bg-anime-orange px-3 py-1 text-xs rounded-lg font-bold"
+                      className="absolute right-2 top-1.5 flex items-center gap-1.5 bg-anime-orange px-3 py-1.5 text-xs font-bold rounded-lg hover:bg-orange-600 transition"
                     >
+                      <i data-lucide="search" className="w-4 h-4"></i>
                       Cari
                     </button>
                   </div>
@@ -495,6 +532,10 @@
                         </div>
                       ))}
                     </div>
+                  )}
+
+                  {searchQuery && searchResults.length === 0 && (
+                    <p className="text-center text-gray-400 text-sm py-8">Tidak ada hasil untuk "{searchQuery}"</p>
                   )}
                 </div>
               )}
@@ -531,17 +572,17 @@
           <nav className="fixed bottom-0 left-0 right-0 bg-navy-900/95 border-t border-navy-800 py-2.5 px-4 backdrop-blur z-30">
             <div className="max-w-md mx-auto flex justify-around text-xs">
               {[
-                { id: "home", label: "Beranda", icon: "🏠" },
-                { id: "schedule", label: "Jadwal", icon: "📅" },
-                { id: "explore", label: "Cari", icon: "🔍" },
-                { id: "library", label: "Pustaka", icon: "📚" }
+                { id: "home", label: "Beranda", icon: "home" },
+                { id: "schedule", label: "Jadwal", icon: "calendar" },
+                { id: "explore", label: "Cari", icon: "search" },
+                { id: "library", label: "Pustaka", icon: "bookmark" }
               ].map(tab => (
                 <button
                   key={tab.id}
                   onClick={() => { setActiveTab(tab.id); setSelectedAnime(null); setActiveEpisode(null); }}
-                  className={`flex flex-col items-center gap-1 font-medium transition ${activeTab === tab.id ? "text-anime-orange font-bold" : "text-gray-400"}`}
+                  className={`flex flex-col items-center gap-1 font-medium transition ${activeTab === tab.id ? "text-anime-orange font-bold" : "text-gray-400 hover:text-white"}`}
                 >
-                  <span className="text-base">{tab.icon}</span>
+                  <i data-lucide={tab.icon} className={`w-5 h-5 ${activeTab === tab.id ? "text-anime-orange" : ""}`}></i>
                   <span>{tab.label}</span>
                 </button>
               ))}
